@@ -99,7 +99,9 @@ module "n8n" {
   # Exposes n8n's Prometheus metrics on /metrics (port 5678). The module only
   # sets N8N_METRICS=true; scrape config (annotations / ServiceMonitor) is left
   # to whatever monitoring stack runs in the cluster.
-  n8n_metrics_enabled = true
+  n8n_metrics_enabled             = true
+  n8n_otel_enabled                = true
+  n8n_otel_exporter_otlp_endpoint = "http://jaeger-otlp.monitoring.svc.cluster.local:4318"
 
   tags = local.common_tags
 }
