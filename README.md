@@ -4,7 +4,7 @@ Live deployment of [`terraform-aws-n8n`](https://github.com/n8n-io/terraform-aws
 
 ## What this repo does
 
-- Runs in TFC workspace `jrxhc/n8n` (see `backend.hcl`).
+- Runs in TFC workspace `jrxhc/n8n` (see `backend.tf`).
 - Consumes a shared VPC from the sibling TFC workspace `jrxhc/net` via `terraform_remote_state` (`networking.tf`).
 - Tags every subnet of that VPC with `kubernetes.io/cluster/<cluster_name> = shared` so the AWS Load Balancer Controller auto-discovery in this cluster doesn't fight other clusters that share the VPC.
 - Instantiates the `terraform-aws-n8n` module with **cost-controlled test-sizing overrides** (~$220–240/mo vs ~$440 at the module's `complete`-example defaults). See the comment block in `main.tf` — not suitable for production (single-AZ DB, no cache replication, single-pod floors on webhook and worker).
@@ -24,7 +24,7 @@ cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars
 
 # 2. Initialize with the remote backend.
-terraform init -backend-config=backend.hcl
+terraform init
 
 # 3. Plan / apply.
 terraform plan
@@ -52,8 +52,8 @@ The module is `0.x`, so `~> 0.1.0` allows patch releases (`>= 0.1.0, < 0.2.0`) o
 | `networking.tf` | Reads VPC from the `net` workspace and tags subnets for this cluster. |
 | `variables.tf` / `outputs.tf` | Root-level inputs and pass-through outputs. |
 | `providers.tf` | `aws`, `kubernetes`, `helm` provider config. The latter two authenticate against the EKS cluster the module creates. |
-| `versions.tf` | `required_version` + `required_providers` + remote backend declaration. |
-| `backend.hcl` | TFC backend configuration consumed via `-backend-config=`. |
+| `versions.tf` | `required_version` + `required_providers`. |
+| `backend.tf` | TFC remote backend configuration (organization and workspace). |
 | `terraform.tfvars.example` | Template for local variable values. **Never commit your filled-in `terraform.tfvars` or `*.auto.tfvars`** — they are gitignored for a reason. |
 | `.terraform-docs.yml` | terraform-docs config for the README block below. |
 
