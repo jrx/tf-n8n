@@ -1,6 +1,6 @@
 # tf-n8n
 
-Live deployment of [`terraform-aws-n8n`](https://github.com/jrx/terraform-aws-n8n) for the `jrxhc` Terraform Cloud organization. This is **not** a reusable Terraform Registry module — it is a private root configuration that consumes one.
+Live deployment of [`terraform-aws-n8n`](https://github.com/n8n-io/terraform-aws-n8n) for the `jrxhc` Terraform Cloud organization. This is **not** a reusable Terraform Registry module — it is a private root configuration that consumes one.
 
 ## What this repo does
 
@@ -8,7 +8,7 @@ Live deployment of [`terraform-aws-n8n`](https://github.com/jrx/terraform-aws-n8
 - Consumes a shared VPC from the sibling TFC workspace `jrxhc/net` via `terraform_remote_state` (`networking.tf`).
 - Tags every subnet of that VPC with `kubernetes.io/cluster/<cluster_name> = shared` so the AWS Load Balancer Controller auto-discovery in this cluster doesn't fight other clusters that share the VPC.
 - Instantiates the `terraform-aws-n8n` module with **cost-controlled test-sizing overrides** (~$220–240/mo vs ~$440 at the module's `complete`-example defaults). See the comment block in `main.tf` — not suitable for production (single-AZ DB, no cache replication, single-pod floors on webhook and worker).
-- Enables n8n's Prometheus `/metrics` endpoint and exports OTLP traces to an in-cluster Jaeger collector (`http://jaeger-otlp.monitoring.svc.cluster.local:4318`).
+- Enables n8n's Prometheus `/metrics` endpoint. OTLP tracing is off by default; enable it by setting `n8n_otel_enabled` and an OTLP endpoint in `main.tf`.
 
 ## Prerequisites
 
@@ -35,17 +35,14 @@ Allow ~5 minutes after `apply` for the ALB to become reachable on `n8n_domain`.
 
 ## Module source
 
-`main.tf` currently sources the module from an absolute local path:
+`main.tf` sources the module from the public Terraform Registry, pinned to a patch-level constraint:
 
 ```hcl
-source = "/Users/jan/code/n8n/src/terraform-aws-n8n"
+source  = "n8n-io/n8n/aws"
+version = "~> 0.1.0"
 ```
 
-This works only on the maintainer's machine. **Before sharing this repo or running it from CI, switch to a pinned remote ref**, e.g.:
-
-```hcl
-source = "git::https://github.com/jrx/terraform-aws-n8n.git?ref=v0.1.0"
-```
+The module is `0.x`, so `~> 0.1.0` allows patch releases (`>= 0.1.0, < 0.2.0`) only. Bump to a new minor (`~> 0.2.0`) deliberately, after reviewing the release notes for breaking changes. Upstream: [n8n-io/terraform-aws-n8n](https://github.com/n8n-io/terraform-aws-n8n).
 
 ## Files
 
@@ -94,7 +91,7 @@ Store both in a password manager. **Do not** redirect them to a file in this dir
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
-| <a name="module_n8n"></a> [n8n](#module\_n8n) | /Users/jan/code/n8n/src/terraform-aws-n8n | n/a |
+| <a name="module_n8n"></a> [n8n](#module\_n8n) | n8n-io/n8n/aws | ~> 0.1.0 |
 
 ## Resources
 

@@ -16,7 +16,8 @@ locals {
 # data.terraform_remote_state.vpc (see networking.tf).
 
 module "n8n" {
-  source = "/Users/jan/code/n8n/src/terraform-aws-n8n"
+  source  = "n8n-io/n8n/aws"
+  version = "~> 0.1.0" # 0.x: pin to patch; bump deliberately after reviewing each release
 
   aws_region      = var.aws_region
   cluster_name    = var.cluster_name
@@ -31,8 +32,8 @@ module "n8n" {
 
   # ── Test sizing overrides ────────────────────────────────────────────────────
   # Minimal configuration for cost-controlled testing (~$220-240/mo vs ~$440
-  # at root-module defaults). All values use existing root-module inputs — no
-  # changes to /Users/jan/code/n8n/src/terraform-aws-n8n are required.
+  # at root-module defaults). All values use existing module inputs — no
+  # changes to the n8n-io/n8n/aws module are required.
   # Not suitable for production: single-AZ DB, no cache replication, single-pod
   # n8n floors. Remove this block to revert to the `complete`-example sizing.
 
@@ -99,9 +100,10 @@ module "n8n" {
   # Exposes n8n's Prometheus metrics on /metrics (port 5678). The module only
   # sets N8N_METRICS=true; scrape config (annotations / ServiceMonitor) is left
   # to whatever monitoring stack runs in the cluster.
-  n8n_metrics_enabled             = true
-  n8n_otel_enabled                = true
-  n8n_otel_exporter_otlp_endpoint = "http://jaeger-otlp.monitoring.svc.cluster.local:4318"
+  n8n_metrics_enabled = true
+
+  # OTEL tracing is disabled (module default). To enable, set n8n_otel_enabled
+  # = true and point n8n_otel_exporter_otlp_endpoint at a live OTLP receiver.
 
   tags = local.common_tags
 }
