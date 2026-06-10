@@ -35,14 +35,19 @@ Allow ~5 minutes after `apply` for the ALB to become reachable on `n8n_domain`.
 
 ## Module source
 
-`main.tf` sources the module from the public Terraform Registry, pinned to a patch-level constraint:
+`main.tf` sources the module straight from the `main` branch of the upstream repo, **intentionally unpinned**, so this environment always exercises the latest module state:
 
 ```hcl
-source  = "n8n-io/n8n/aws"
-version = "~> 0.1.0"
+source = "git::https://github.com/n8n-io/terraform-aws-n8n.git?ref=main"
 ```
 
-The module is `0.x`, so `~> 0.1.0` allows patch releases (`>= 0.1.0, < 0.2.0`) only. Bump to a new minor (`~> 0.2.0`) deliberately, after reviewing the release notes for breaking changes. Upstream: [n8n-io/terraform-aws-n8n](https://github.com/n8n-io/terraform-aws-n8n).
+This is a deliberate choice for a throwaway test environment: it trades reproducibility for always testing tip-of-`main`. Consequences to keep in mind:
+
+- `terraform init -upgrade` re-fetches whatever `main` points at, so two inits at different times can produce different plans against the same state.
+- The provider lock file pins providers, not the module's Git ref, so it gives no protection here.
+- A breaking input change upstream lands on the next `init -upgrade` with no warning.
+
+For any durable or production use, pin instead to a tag or commit, for example `?ref=0.1.0` or `?ref=<commit-sha>`, or use the Registry source `n8n-io/n8n/aws` with a `version` constraint. Upstream: [n8n-io/terraform-aws-n8n](https://github.com/n8n-io/terraform-aws-n8n).
 
 ## Files
 
@@ -91,7 +96,7 @@ Store both in a password manager. **Do not** redirect them to a file in this dir
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
-| <a name="module_n8n"></a> [n8n](#module\_n8n) | n8n-io/n8n/aws | ~> 0.1.0 |
+| <a name="module_n8n"></a> [n8n](#module\_n8n) | git::https://github.com/n8n-io/terraform-aws-n8n.git | main |
 
 ## Resources
 

@@ -16,8 +16,7 @@ locals {
 # data.terraform_remote_state.vpc (see networking.tf).
 
 module "n8n" {
-  source  = "n8n-io/n8n/aws"
-  version = "~> 0.1.0" # 0.x: pin to patch; bump deliberately after reviewing each release
+  source = "git::https://github.com/n8n-io/terraform-aws-n8n.git?ref=main"
 
   aws_region      = var.aws_region
   cluster_name    = var.cluster_name
