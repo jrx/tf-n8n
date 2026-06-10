@@ -101,8 +101,11 @@ module "n8n" {
   # to whatever monitoring stack runs in the cluster.
   n8n_metrics_enabled = true
 
-  # OTEL tracing is disabled (module default). To enable, set n8n_otel_enabled
-  # = true and point n8n_otel_exporter_otlp_endpoint at a live OTLP receiver.
+  # OTEL tracing: exports workflow/node spans to the in-cluster Jaeger OTLP
+  # receiver in the monitoring namespace. Applies to all n8n containers
+  # (main, worker, webhook processor).
+  n8n_otel_enabled                = true
+  n8n_otel_exporter_otlp_endpoint = "http://jaeger-otlp.monitoring.svc.cluster.local:4318"
 
   tags = local.common_tags
 }
