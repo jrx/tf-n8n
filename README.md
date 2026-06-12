@@ -8,13 +8,16 @@ Live deployment of [`terraform-aws-n8n`](https://github.com/n8n-io/terraform-aws
 - Consumes a shared VPC from the sibling TFC workspace `jrxhc/net` via `terraform_remote_state` (`networking.tf`).
 - Tags every subnet of that VPC with `kubernetes.io/cluster/<cluster_name> = shared` so the AWS Load Balancer Controller auto-discovery in this cluster doesn't fight other clusters that share the VPC.
 - Instantiates the `terraform-aws-n8n` module with **cost-controlled test-sizing overrides** (~$220–240/mo vs ~$440 at the module's `complete`-example defaults). See the comment block in `main.tf` — not suitable for production (single-AZ DB, no cache replication, single-pod floors on webhook and worker).
-- Enables n8n's Prometheus `/metrics` endpoint. OTLP tracing is off by default; enable it by setting `n8n_otel_enabled` and an OTLP endpoint in `main.tf`.
+- Enables n8n's Prometheus `/metrics` endpoint and OTLP tracing (`n8n_otel_enabled = true`), exporting spans to the in-cluster Jaeger OTLP receiver in the `monitoring` namespace.
+- Enables env-managed Enterprise log streaming: one syslog destination forwards `n8n.audit`, `n8n.node`, and `n8n.queue` events (audit messages anonymized) to a Grafana Alloy syslog receiver in the `monitoring` namespace. With `n8n_log_streaming_managed_by_env = true`, the Log Streaming UI is read-only and the destinations reapply on every pod start.
+- Disables the personalization survey and the templates gallery to reduce noise in a test environment.
 
 ## Prerequisites
 
 - Access to TFC org `jrxhc` with permissions on workspaces `n8n` (this repo) and `net` (the upstream VPC).
 - A Route53 hosted zone for the parent of `n8n_domain`. The module creates the ACM certificate, the validation CNAMEs, and the alias A-record inside that zone — no manual DNS steps.
-- An n8n Enterprise license key. **Do not commit it.** Pass it via `TF_VAR_n8n_license_key` or a TFC sensitive variable on the workspace.
+- An n8n Enterprise license key. **Do not commit it.** Pass it via `TF_VAR_n8n_license_key` or a TFC sensitive variable on the workspace. Log streaming additionally requires the license to include that feature, and n8n >= 2.19.0 (the pinned chart ships the `stable` image tag, which satisfies this).
+- A monitoring stack in the cluster's `monitoring` namespace providing the endpoints `main.tf` points at: a Jaeger OTLP receiver (`jaeger-otlp:4318`) for tracing and a Grafana Alloy syslog listener (`alloy-syslog:1514/tcp`, RFC 5424) for log streaming. Both are managed outside this repo; if they are absent, traces and streamed events are dropped silently but n8n itself runs fine.
 
 ## Apply
 
