@@ -107,5 +107,35 @@ module "n8n" {
   n8n_otel_enabled                = true
   n8n_otel_exporter_otlp_endpoint = "http://jaeger-otlp.monitoring.svc.cluster.local:4318"
 
+  # ── UI noise reduction (test env) ───────────────────────────────────────
+  # Skip the personalization survey on first login and hide the templates
+  # gallery — neither is useful in a short-lived test environment.
+  n8n_personalization_enabled = false
+  n8n_templates_enabled       = false
+
+  # ── Log streaming → Grafana Alloy (Enterprise feature) ─────────────────
+  # Requires n8n >= 2.19.0 (chart 1.4.0 ships appVersion "stable", currently
+  # 2.25.x) and a license that includes log streaming. Managed-by-env locks
+  # the Log Streaming UI read-only; destinations reapply on every pod start.
+  # The Alloy syslog receiver (monitoring namespace, 1514/tcp) is managed
+  # outside this repo — if it's down, events are dropped silently.
+  # NOTE: key casing below is the verbatim n8n JSON contract — app_name is
+  # snake_case while subscribedEvents / anonymizeAuditMessages are camelCase.
+  # The module jsonencode()s this list as-is; do not "normalize" the keys.
+  n8n_log_streaming_managed_by_env = true
+  n8n_log_streaming_destinations = [
+    {
+      type                   = "syslog"
+      label                  = "Alloy syslog"
+      enabled                = true
+      host                   = "alloy-syslog.monitoring.svc.cluster.local"
+      port                   = 1514
+      protocol               = "tcp"
+      app_name               = "n8n"
+      subscribedEvents       = ["n8n.audit", "n8n.node", "n8n.queue"]
+      anonymizeAuditMessages = true
+    },
+  ]
+
   tags = local.common_tags
 }
