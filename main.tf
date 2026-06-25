@@ -104,8 +104,9 @@ module "n8n" {
   # OTEL tracing: exports workflow/node spans to the in-cluster Jaeger OTLP
   # receiver in the monitoring namespace. Applies to all n8n containers
   # (main, worker, webhook processor).
-  n8n_otel_enabled                = true
-  n8n_otel_exporter_otlp_endpoint = "http://jaeger-otlp.monitoring.svc.cluster.local:4318"
+  n8n_otel_enabled                   = true
+  n8n_otel_traces_include_node_spans = true
+  n8n_otel_exporter_otlp_endpoint    = "http://jaeger-otlp.monitoring.svc.cluster.local:4318"
 
   # ── UI noise reduction (test env) ───────────────────────────────────────
   # Skip the personalization survey on first login and hide the templates
@@ -136,6 +137,8 @@ module "n8n" {
       anonymizeAuditMessages = true
     },
   ]
+
+  n8n_extra_env = var.n8n_extra_env
 
   tags = local.common_tags
 }

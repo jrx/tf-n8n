@@ -31,6 +31,15 @@ variable "n8n_license_key" {
   sensitive   = true
 }
 
+variable "n8n_extra_env" {
+  description = "Additional environment variables to inject into all n8n pods (main, worker, and webhook-processor) via the Helm chart's config.extraEnv list. Each entry is an object with name and value string attributes. Module-managed connection, identity, storage, license, and topology variables are rejected at plan time — use the dedicated module inputs for those. Do not put secret values here; they render into plaintext Terraform state."
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
+
 variable "tags" {
   description = "Additional AWS tags to apply to every resource this example creates."
   type        = map(string)
