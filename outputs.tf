@@ -32,6 +32,20 @@ output "rds_endpoint" {
   value       = module.n8n.rds_endpoint
 }
 
+# Read by the `monitoring` workspace to point its Redis exporter at the Bull
+# queue (n8n Monitoring Pack "Queue & Workers" dashboard). Plaintext, no
+# AUTH: redis_transit_encryption_enabled is left at the module default here.
+# If that ever changes, the exporter in tf-monitoring needs TLS + the token.
+output "redis_endpoint" {
+  description = "ElastiCache Redis host n8n's Bull queue lives on (host only, no port)."
+  value       = module.n8n.redis_endpoint
+}
+
+output "redis_port" {
+  description = "Port for redis_endpoint."
+  value       = module.n8n.redis_port
+}
+
 # ── Secrets ───────────────────────────────────────────────────────────────────
 # Retrieve with: terraform output -raw <name>
 

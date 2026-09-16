@@ -6,6 +6,52 @@ locals {
     },
     var.tags,
   )
+
+  # Prometheus metric families that n8n keeps off by default. The n8n
+  # Monitoring Pack dashboards in the `monitoring` workspace read every one
+  # of these, so they are enabled here (the producer side) and scraped there.
+  # The module owns N8N_METRICS itself (n8n_metrics_enabled above); these
+  # N8N_METRICS_INCLUDE_* flags are not module-managed, so they ride in
+  # n8n_extra_env and apply to main, worker and webhook pods alike.
+  # Env names verified against n8n 2.39.6 packages/@n8n/config/src/configs/
+  # endpoints.config.ts. Flags with a default of true (execution duration
+  # histogram, Node.js default metrics) are not repeated here.
+  #
+  # Cardinality note: the workflow_id / workflow_name labels add one series
+  # per workflow per metric. Fine for a sandbox; revisit before pointing a
+  # large instance at this.
+  n8n_metrics_env = [
+    # Connection pool gauges + acquire histogram (n8n_db_pool_*).
+    { name = "N8N_METRICS_INCLUDE_DB_POOL_METRICS", value = "true" },
+    # Cache hit / miss counters (n8n_cache_hits_total, n8n_cache_misses_total).
+    { name = "N8N_METRICS_INCLUDE_CACHE_METRICS", value = "true" },
+    # Execution data read/write counters + histograms (n8n_execution_data_*).
+    { name = "N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS", value = "true" },
+    # Webhook request duration histogram (n8n_webhook_request_duration_seconds).
+    { name = "N8N_METRICS_INCLUDE_WEBHOOK_METRICS", value = "true" },
+    # HTTP route histogram (n8n_http_request_duration_seconds) + n8n_last_activity,
+    # with the status_code label the golden-signals dashboard groups by.
+    { name = "N8N_METRICS_INCLUDE_API_ENDPOINTS", value = "true" },
+    { name = "N8N_METRICS_INCLUDE_API_STATUS_CODE_LABEL", value = "true" },
+    # Per-event counters from the message event bus
+    # (n8n_workflow_started_total / _success_total / _failed_total, ...).
+    { name = "N8N_METRICS_INCLUDE_MESSAGE_EVENT_BUS_METRICS", value = "true" },
+    # workflow_id + workflow_name labels on the event-bus counters and
+    # workflow_id on the execution duration histogram.
+    { name = "N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL", value = "true" },
+    { name = "N8N_METRICS_INCLUDE_WORKFLOW_NAME_LABEL", value = "true" },
+    # n8n_workflow_info{workflow_id, workflow_name} gauge used to join
+    # workflow_id-only series onto a readable name.
+    { name = "N8N_METRICS_INCLUDE_WORKFLOW_INFO", value = "true" },
+    # Instance-lifetime totals from the license metrics repository
+    # (n8n_production_executions, n8n_manual_executions, n8n_workflows,
+    # n8n_users, n8n_enabled_users, n8n_credentials). Refreshed every 300s
+    # by default, same value on every role, so aggregate with max().
+    { name = "N8N_METRICS_INCLUDE_WORKFLOW_STATISTICS", value = "true" },
+    # Bull job counts as seen by each main (n8n_scaling_mode_queue_jobs_*).
+    # Every main reports the same shared queue, so aggregate with max().
+    { name = "N8N_METRICS_INCLUDE_QUEUE_METRICS", value = "true" },
+  ]
 }
 
 # ── n8n ───────────────────────────────────────────────────────────────────────
@@ -135,7 +181,7 @@ module "n8n" {
     },
   ]
 
-  n8n_extra_env = var.n8n_extra_env
+  n8n_extra_env = concat(var.n8n_extra_env, local.n8n_metrics_env)
 
   tags = local.common_tags
 }
