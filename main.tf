@@ -34,7 +34,7 @@ module "n8n" {
   # at root-module defaults). All values use existing module inputs — no
   # changes to the n8n-io/n8n/aws module are required.
   # Not suitable for production: single-AZ DB, no cache replication, single-pod
-  # n8n floors. Remove this block to revert to the `complete`-example sizing.
+  # webhook and worker floors. Remove this block to use the module defaults.
 
   # ── Compute: 2× t3.medium ≈ $60/mo, vs 3× t3.xlarge ≈ $150 ─────────────────
   node_instance_type = "t3.medium" # 2 vCPU / 4 GB
@@ -52,18 +52,15 @@ module "n8n" {
 
   # ── Replica floors: drop to 1 each so the cluster is sized for idle ────────
   # Keep maxes at defaults — autoscaler can still grow under load.
-  # main stays at 2: the n8n chart starts 2 main pods in parallel for
-  # multi-main mode, and both race to run TypeORM migrations on fresh installs.
-  # If HPA scales main down to 1 mid-race, the surviving pod can get stuck on a
-  # half-applied migration (e.g. CreateDeploymentKeyTable's index already
-  # created by the sibling). Keeping min=2 lets Kubernetes restart the stuck
-  # pod automatically so the install self-heals.
+  # Keep main at 2 to preserve Enterprise multi-main mode. The current module
+  # supports a floor of 1, but that disables multi-main and clamps its HPA to 1.
+  # That topology change is not part of this upgrade.
   n8n_main_hpa_min_replicas    = 2
   n8n_webhook_hpa_min_replicas = 1
   n8n_worker_keda_min_replicas = 1
 
   # ── Pod resource requests: shrink to fit t3.medium (~1.7 vCPU usable) ──────
-  # Aggregate at min replicas: ~550m CPU / ~1Gi RAM across user pods,
+  # At min replicas, including runner sidecars: 1100m CPU / 2304Mi RAM,
   # leaving headroom for addons (lbc, keda, metrics-server, cluster-autoscaler).
   n8n_main_cpu_request    = "250m"
   n8n_main_cpu_limit      = "1000m"
@@ -115,8 +112,8 @@ module "n8n" {
   n8n_templates_enabled       = false
 
   # ── Log streaming → Grafana Alloy (Enterprise feature) ─────────────────
-  # Requires n8n >= 2.19.0 (chart 1.4.0 ships appVersion "stable", currently
-  # 2.25.x) and a license that includes log streaming. Managed-by-env locks
+  # Requires n8n >= 2.19.0 and a license that includes log streaming.
+  # The module's chart default supplies the application image. Managed-by-env locks
   # the Log Streaming UI read-only; destinations reapply on every pod start.
   # The Alloy syslog receiver (monitoring namespace, 1514/tcp) is managed
   # outside this repo — if it's down, events are dropped silently.

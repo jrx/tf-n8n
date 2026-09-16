@@ -7,13 +7,14 @@ Live deployment of [`terraform-aws-n8n`](https://github.com/n8n-io/terraform-aws
 - Runs in TFC workspace `jrxhc/n8n` (see `backend.tf`).
 - Consumes a shared VPC from the sibling TFC workspace `jrxhc/net` via `terraform_remote_state` (`networking.tf`).
 - Tags every subnet of that VPC with `kubernetes.io/cluster/<cluster_name> = shared` so the AWS Load Balancer Controller auto-discovery in this cluster doesn't fight other clusters that share the VPC.
-- Instantiates the `terraform-aws-n8n` module with **cost-controlled test-sizing overrides** (~$220–240/mo vs ~$440 at the module's `complete`-example defaults). See the comment block in `main.tf` — not suitable for production (single-AZ DB, no cache replication, single-pod floors on webhook and worker).
+- Instantiates the `terraform-aws-n8n` module with **cost-controlled test-sizing overrides** (~$220–240/mo vs ~$440 at the module defaults). See the comment block in `main.tf` — not suitable for production (single-AZ DB, no cache replication, single-pod floors on webhook and worker).
 - Enables n8n's Prometheus `/metrics` endpoint and OTLP tracing (`n8n_otel_enabled = true`), exporting spans to the in-cluster Jaeger OTLP receiver in the `monitoring` namespace.
 - Enables env-managed Enterprise log streaming: one syslog destination forwards `n8n.audit`, `n8n.node`, and `n8n.queue` events (audit messages anonymized) to a Grafana Alloy syslog receiver in the `monitoring` namespace. With `n8n_log_streaming_managed_by_env = true`, the Log Streaming UI is read-only and the destinations reapply on every pod start.
 - Disables the personalization survey and the templates gallery to reduce noise in a test environment.
 
 ## Prerequisites
 
+- Terraform CLI 1.11 or newer, both locally and in the `jrxhc/n8n` Terraform Cloud workspace.
 - Access to TFC org `jrxhc` with permissions on workspaces `n8n` (this repo) and `net` (the upstream VPC).
 - A Route53 hosted zone for the parent of `n8n_domain`. The module creates the ACM certificate, the validation CNAMEs, and the alias A-record inside that zone — no manual DNS steps.
 - An n8n Enterprise license key. **Do not commit it.** Pass it via `TF_VAR_n8n_license_key` or a TFC sensitive variable on the workspace. Log streaming additionally requires the license to include that feature, and n8n >= 2.19.0 (the pinned chart ships the `stable` image tag, which satisfies this).
@@ -26,8 +27,8 @@ Live deployment of [`terraform-aws-n8n`](https://github.com/n8n-io/terraform-aws
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars
 
-# 2. Initialize with the remote backend.
-terraform init
+# 2. Initialize with the remote backend and fetch current dependencies.
+terraform init -upgrade
 
 # 3. Plan / apply.
 terraform plan
@@ -51,6 +52,21 @@ This is a deliberate choice for a throwaway test environment: it trades reproduc
 - A breaking input change upstream lands on the next `init -upgrade` with no warning.
 
 For any durable or production use, pin instead to a tag or commit, for example `?ref=0.1.0` or `?ref=<commit-sha>`, or use the Registry source `n8n-io/n8n/aws` with a `version` constraint. Upstream: [n8n-io/terraform-aws-n8n](https://github.com/n8n-io/terraform-aws-n8n).
+
+## Upgrading this deployment
+
+Compatibility checked against upstream `main` commit `0ae08b7c00cf94fd5327b311940c67ade034f781`:
+
+- Terraform requires 1.11 or newer. Update the Terraform Cloud workspace version before planning.
+- Kubernetes provider requires 3.x; time requires 0.14 or newer within 0.x. AWS 6.x, Helm 3.x, and random 3.x remain unchanged.
+- Run `terraform init -upgrade` to refresh the module and providers. This repository ignores `.terraform.lock.hcl`, so the local provider selections are not shared through Git.
+- The current defaults deploy n8n chart 1.11.0 and metrics-server chart 3.14.0. Expect Helm upgrades and pod restarts. Metrics-server requires Kubernetes 1.34 or newer; the module defaults to 1.35.
+- New databases default to PostgreSQL 18.6. Confirm that version supports `db.t3.micro` in your AWS region before creating or replacing a database. Existing databases ignore engine-version changes, so this does not upgrade their PostgreSQL major version.
+- Review `n8n_extra_env` values in local files and Terraform Cloud. Newly reserved names, including the four `EXECUTIONS_DATA_SAVE_*` settings, must use dedicated module inputs instead. Do not remove an entry without preserving its intended setting.
+
+Read the [upstream changelog](https://github.com/n8n-io/terraform-aws-n8n/blob/main/CHANGELOG.md) and review a live `terraform plan` before applying. Upstream includes state-address migrations and new encryption defaults. Stop if the plan replaces the database, cluster, Redis, or S3 bucket unexpectedly. Back up the database and encryption key first: the module skips the final RDS snapshot on deletion, and a Helm rollback does not reverse n8n database migrations.
+
+Backend-disabled initialization and `terraform validate` check configuration compatibility only. They do not verify live state migrations, regional availability, permissions, or runtime health.
 
 ## Files
 
@@ -81,18 +97,18 @@ Store both in a password manager. **Do not** redirect them to a file in this dir
 
 | Name | Version |
 | ---- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 5.0 |
-| <a name="requirement_helm"></a> [helm](#requirement\_helm) | ~> 2.12 |
-| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | ~> 2.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.11 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 6.0 |
+| <a name="requirement_helm"></a> [helm](#requirement\_helm) | ~> 3.0 |
+| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | ~> 3.0 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.0 |
-| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.12 |
+| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.14 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 5.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 6.0 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
@@ -115,6 +131,7 @@ Store both in a password manager. **Do not** redirect them to a file in this dir
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region to deploy into (e.g. us-east-1, eu-west-1, ap-southeast-1). | `string` | `"us-east-1"` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name for the EKS cluster. Keep to 14 characters or fewer — the module derives an ElastiCache cluster ID of `<cluster_name>-redis`, and AWS caps ElastiCache IDs at 20 chars. | `string` | `"n8n-cluster"` | no |
 | <a name="input_n8n_domain"></a> [n8n\_domain](#input\_n8n\_domain) | Fully-qualified domain name for n8n (e.g. n8n.example.com). The parent zone must be hosted in Route53 (pass its ID via route53\_zone\_id). | `string` | n/a | yes |
+| <a name="input_n8n_extra_env"></a> [n8n\_extra\_env](#input\_n8n\_extra\_env) | Additional environment variables to inject into all n8n pods (main, worker, and webhook-processor) via the Helm chart's config.extraEnv list. Each entry is an object with name and value string attributes. Module-managed connection, identity, storage, license, and topology variables are rejected at plan time — use the dedicated module inputs for those. Do not put secret values here; they render into plaintext Terraform state. | <pre>list(object({<br/>    name  = string<br/>    value = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_n8n_license_key"></a> [n8n\_license\_key](#input\_n8n\_license\_key) | n8n Enterprise license activation key. Get one at https://n8n.io/pricing | `string` | n/a | yes |
 | <a name="input_route53_zone_id"></a> [route53\_zone\_id](#input\_route53\_zone\_id) | Route53 hosted zone ID for the parent of n8n\_domain (e.g. the zone for example.com if n8n\_domain = n8n.example.com). The module creates the ACM certificate, validation records, and alias A-record inside this zone. | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional AWS tags to apply to every resource this example creates. | `map(string)` | `{}` | no |
