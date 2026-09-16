@@ -43,6 +43,11 @@ locals {
     # n8n_workflow_info{workflow_id, workflow_name} gauge used to join
     # workflow_id-only series onto a readable name.
     { name = "N8N_METRICS_INCLUDE_WORKFLOW_INFO", value = "true" },
+    # Instance-lifetime totals from the license metrics repository
+    # (n8n_production_executions, n8n_manual_executions, n8n_workflows,
+    # n8n_users, n8n_enabled_users, n8n_credentials). Refreshed every 300s
+    # by default, same value on every role, so aggregate with max().
+    { name = "N8N_METRICS_INCLUDE_WORKFLOW_STATISTICS", value = "true" },
     # Bull job counts as seen by each main (n8n_scaling_mode_queue_jobs_*).
     # Every main reports the same shared queue, so aggregate with max().
     { name = "N8N_METRICS_INCLUDE_QUEUE_METRICS", value = "true" },
